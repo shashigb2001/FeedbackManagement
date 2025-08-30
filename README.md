@@ -1,4 +1,4 @@
-# Feedback System (Spring Boot + PostgreSQL)
+# Feedback Management System 
 
 - **JDK:** 21
 - **Maven modelVersion:** 4.0.0
