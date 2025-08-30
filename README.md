@@ -10,7 +10,7 @@
 3. run mvn spring-boot:run
 
 ### Authentication & RBAC
-- Form login for Student, Faculty, Admin.
+- login for Student, Faculty, Admin.
 - Role-based access to `student`, `faculty`, `admin`.
 - Change password.
 
