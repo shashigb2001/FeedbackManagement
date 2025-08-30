@@ -11,7 +11,7 @@
 
 ### Authentication & RBAC
 - Form login for Student, Faculty, Admin.
-- Role-based access to `/student/**`, `/faculty/**`, `/admin/**`.
+- Role-based access to `student`, `faculty`, `admin`.
 - Change password.
 
 ### Admin
