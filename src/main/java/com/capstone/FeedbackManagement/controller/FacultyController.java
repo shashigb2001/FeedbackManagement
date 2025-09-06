@@ -24,7 +24,7 @@ public class FacultyController {
     @Autowired private FeedbackFormRepo formRepo;
     @Autowired private JwtService jwtService;
 
-    private User me(String bearer) { String email = jwtService.extractUsername(bearer.substring(7)); return userRepo.findByEmail(email).orElseThrow(); }
+    private User me(String bearer) {  String email = jwtService.extractUsername(bearer.substring(7)); return userRepo.findByEmail(email).orElseThrow(); }
 
 
     @PostMapping("/forms")
