@@ -48,6 +48,7 @@ public class StudentController {
         if (obj == null) return null;
         Class<?> cls = obj.getClass();
         for (String name : names) {
+
             try {
                 Method m = cls.getMethod(name);
                 if (m != null) {
