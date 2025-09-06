@@ -17,3 +17,14 @@
 ### Admin
 - Create faculty accounts.
 - List & delete faculty accounts.
+
+### Faculty
+-Create feedback forms with questions (rating/text). 
+-Assign forms to students via email.
+-List forms created by the faculty.
+-View analytics for assigned forms (submission rate, averages, distributions, text answers).
+
+### Student
+-View pending feedback assignments.
+-Submit answers (ratings and/or text) for assigned forms.
+-View completed submissions with their own answers.
