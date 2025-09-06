@@ -19,10 +19,7 @@ public class SeedData {
             if (users.findByEmail("admin@gmail.com").isEmpty()) {
                 users.save(User.builder().email("admin@gmail.com").fullName("Admin").password(encoder.encode("admin123")).role(Role.ADMIN).enabled(true).build());
             }
-            users.findByEmail("faculty@gmail.com").orElseGet(() -> users.save(User.builder()
-                    .email("faculty@gmail.com").fullName("Faculty1").password(encoder.encode("fac123")).role(Role.FACULTY).enabled(true).build()));
-            users.findByEmail("student@gmail.com").orElseGet(() -> users.save(User.builder()
-                    .email("student@demo.gmail").fullName("Student1").password(encoder.encode("stud123")).role(Role.STUDENT).enabled(true).build()));
+
         };
     }
 }

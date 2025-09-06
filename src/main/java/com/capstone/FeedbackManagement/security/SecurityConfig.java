@@ -43,7 +43,7 @@ public class SecurityConfig {
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(reg -> reg
                         .requestMatchers("/", "/index.html",
-                                "/admin.html", "/faculty.html", "/student.html", "/app.js",
+                                "/admin.html", "/analytics.html", "/faculty.html", "/student.html", "/app.js",
                                 "/api/auth/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/public/**").permitAll()
                         .anyRequest().authenticated()
