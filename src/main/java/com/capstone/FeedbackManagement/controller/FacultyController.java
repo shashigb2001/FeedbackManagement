@@ -24,7 +24,7 @@ public class FacultyController {
     @Autowired private FeedbackFormRepo formRepo;
     @Autowired private JwtService jwtService;
 
-    private User me(String bearer) {  String email = jwtService.extractUsername(bearer.substring(7)); return userRepo.findByEmail(email).orElseThrow(); }
+    private User me(String bearer) { String email = jwtService.extractUsername(bearer.substring(7)); return userRepo.findByEmail(email).orElseThrow(); }
 
 
     @PostMapping("/forms")
@@ -53,7 +53,6 @@ public class FacultyController {
             return Map.of("status", "error", "message", e.getMessage());
         }
     }
-
 
 
     @PostMapping("/forms/{formId}/assign")
@@ -99,17 +98,53 @@ public class FacultyController {
     }
 
 
-
     @GetMapping("/forms/analytics")
     @PreAuthorize("hasRole('FACULTY')")
     public List<Map<String,Object>> allMyFormAnalytics(@RequestHeader("Authorization") String bearer) {
         User faculty = me(bearer);
 
-        // get all forms created by this faculty
         List<FeedbackForm> forms = formRepo.findByCreatedBy(faculty);
 
-        return forms.stream()
-                .map(form -> feedbackService.analytics(form.getId()))
-                .toList();
+        return forms.stream().map(form -> {
+            Map<String,Object> full = feedbackService.analytics(form.getId());
+            String title = full.getOrDefault("title", form.getTitle()) + "";
+            Object assigned = full.getOrDefault("assignedCount", full.getOrDefault("assigned", 0));
+            Object submitted = full.getOrDefault("submittedCount", full.getOrDefault("submitted", 0));
+            Object submittedPct = full.getOrDefault("submittedPercentage", full.getOrDefault("submittedPercent", 0.0));
+
+            return Map.<String,Object>of(
+                    "formId", form.getId(),
+                    "title", title,
+                    "assigned", assigned,
+                    "submitted", submitted,
+                    "submittedPercent", submittedPct
+            );
+        }).toList();
     }
+
+
+    @GetMapping("/forms/{formId}/analytics")
+    @PreAuthorize("hasRole('FACULTY')")
+    public @ResponseBody Map<String,Object> singleFormAnalytics(@RequestHeader("Authorization") String bearer,
+                                                                @PathVariable("formId") Long formId) {
+        try {
+            User faculty = me(bearer);
+
+            Optional<FeedbackForm> opt = formRepo.findById(formId);
+            if (opt.isEmpty()) {
+                return Map.of("status", "error", "message", "Form not found");
+            }
+
+            FeedbackForm form = opt.get();
+            if (form.getCreatedBy() == null || !Objects.equals(form.getCreatedBy().getId(), faculty.getId())) {
+                return Map.of("status", "error", "message", "Not authorized to view analytics for this form");
+            }
+
+            Map<String, Object> analytics = feedbackService.analytics(formId);
+            return Map.of("status", "success", "formId", formId, "analytics", analytics);
+        } catch (Exception e) {
+            return Map.of("status", "error", "message", e.getMessage());
+        }
+    }
+
 }
