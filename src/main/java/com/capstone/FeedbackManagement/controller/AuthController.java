@@ -1,6 +1,7 @@
 package com.capstone.FeedbackManagement.controller;
 
 import com.capstone.FeedbackManagement.domain.User;
+import com.capstone.FeedbackManagement.dto.ChangePasswordRequest;
 import com.capstone.FeedbackManagement.dto.JwtResponse;
 import com.capstone.FeedbackManagement.dto.RegisterRequest;
 import com.capstone.FeedbackManagement.security.JwtService;
@@ -78,6 +79,34 @@ public class AuthController {
         String token = jwtService.generateToken(userDetails);
         return ResponseEntity.ok(new JwtResponse(token, created.getRole().name(), created.getFullName()));
     }
+
+    @PostMapping("/change-password")
+    public ResponseEntity<?> changePassword(
+            @RequestHeader("Authorization") String bearer,
+            @RequestBody ChangePasswordRequest req) {
+        try {
+            String token = bearer.substring(7);
+            String email = jwtService.extractUsername(token);
+
+            userService.changePassword(email, req.oldPassword(), req.newPassword());
+
+            return ResponseEntity.ok(Map.of(
+                    "status", "success",
+                    "message", "Password updated successfully"
+            ));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of(
+                    "error", "Bad Request",
+                    "message", ex.getMessage()
+            ));
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                    "error", "Error",
+                    "message", "An unexpected error occurred"
+            ));
+        }
+    }
+
 
     @GetMapping("/validate")
     public ResponseEntity<?> validateToken(@RequestHeader(value = "Authorization", required = false) String authHeader) {
