@@ -4,6 +4,7 @@ import com.capstone.FeedbackManagement.domain.*;
 import com.capstone.FeedbackManagement.dto.*;
 import com.capstone.FeedbackManagement.repo.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 import java.util.*;
@@ -31,7 +32,6 @@ public class StudentController {
         return userRepo.findByEmail(email).orElseThrow();
     }
 
-
     private Instant toInstant(Object ts) {
         if (ts == null) return null;
         if (ts instanceof Instant) return (Instant) ts;
@@ -48,7 +48,6 @@ public class StudentController {
         if (obj == null) return null;
         Class<?> cls = obj.getClass();
         for (String name : names) {
-
             try {
                 Method m = cls.getMethod(name);
                 if (m != null) {
@@ -66,7 +65,7 @@ public class StudentController {
     private Instant extractSubmittedAt(Object assignment) {
         Object cand = callFirstExistingGetter(assignment,
                 "getSubmittedAt", "getSubmittedOn", "getSubmittedTime", "getSubmittedDate", "getSubmitted",
-                "isSubmittedAt", "isSubmitted"); // various permutations
+                "isSubmittedAt", "isSubmitted");
         return toInstant(cand);
     }
 
@@ -80,73 +79,41 @@ public class StudentController {
 
     @GetMapping("/pending")
     @PreAuthorize("hasRole('STUDENT')")
-    public List<StudentPendingDto> pending(@RequestHeader("Authorization") String bearer) {
+    public List<Map<String,Object>> pending(@RequestHeader("Authorization") String bearer) {
         String email = me(bearer).getEmail();
         List<FeedbackAssignment> list = feedbackService.pendingFor(email);
 
         return list.stream().map(a -> {
             FeedbackForm form = a.getForm();
-
-            List<QuestionDto> questions = questionRepo.findByForm(form)
-                    .stream()
-                    .map(q -> new QuestionDto(
-                            q.getId(),
-                            q.getPrompt(),
-                            q.getType().name(),
-                            q.getMaxRating()
-                    ))
-                    .collect(Collectors.toList());
-
             Instant assignedAt = extractAssignedAt(a);
 
-            return new StudentPendingDto(
-                    a.getId(),
-                    form.getId(),
-                    form.getTitle(),
-                    form.getDescription() == null ? "" : form.getDescription(),
-                    form.getCreatedBy() != null ? form.getCreatedBy().getFullName() : "Unknown",
-                    assignedAt,
-                    questions
-            );
+            Map<String,Object> m = new HashMap<>();
+            m.put("formId", form.getId());
+            m.put("title", form.getTitle());
+            m.put("createdBy", form.getCreatedBy() != null ? form.getCreatedBy().getFullName() : "Unknown");
+            m.put("assignedAt", assignedAt);
+            return m;
         }).collect(Collectors.toList());
     }
 
 
     @GetMapping("/completed")
     @PreAuthorize("hasRole('STUDENT')")
-    public List<StudentCompletedDto> completed(@RequestHeader("Authorization") String bearer) {
+    public List<Map<String,Object>> completed(@RequestHeader("Authorization") String bearer) {
         User student = me(bearer);
         List<FeedbackAssignment> assignments = feedbackService.completedFor(student.getEmail());
 
         return assignments.stream().map(a -> {
             FeedbackForm form = a.getForm();
 
-            List<FeedbackAnswer> answers = answerRepo.findByFormAndStudent(form, student);
-            List<StudentSubmissionAnswerDto> qaList = answers.stream().map(ans -> {
-                Object answerVal = ans.getQuestion().getType() == QuestionType.RATING ? ans.getRatingAnswer() : ans.getTextAnswer();
-                return new StudentSubmissionAnswerDto(
-                        ans.getQuestion().getPrompt(),
-                        ans.getQuestion().getType().name(),
-                        answerVal,
-                        toInstant(ans.getCreatedAt())
-                );
-            }).collect(Collectors.toList());
-
-            Instant assignedAt = extractAssignedAt(a);
-            Instant submittedAt = extractSubmittedAt(a);
-
-            return new StudentCompletedDto(
-                    a.getId(),
-                    form.getId(),
-                    form.getTitle(),
-                    form.getDescription() == null ? "" : form.getDescription(),
-                    form.getCreatedBy() != null ? form.getCreatedBy().getFullName() : "Unknown",
-                    assignedAt,
-                    submittedAt,
-                    qaList
-            );
+            Map<String,Object> m = new HashMap<>();
+            m.put("formId", form.getId());
+            m.put("title", form.getTitle());
+            m.put("createdBy", form.getCreatedBy() != null ? form.getCreatedBy().getFullName() : "Unknown");
+            return m;
         }).collect(Collectors.toList());
     }
+
 
 
     @PostMapping("/submit")
@@ -156,5 +123,96 @@ public class StudentController {
         feedbackService.submitFeedback(me(bearer), req.formId(), req.answers());
         return Map.of("status", "success", "formId", req.formId());
     }
+
+    @GetMapping("/pending/{formId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<?> pendingSingle(@RequestHeader("Authorization") String bearer,
+                                           @PathVariable("formId") Long formId) {
+        String email = me(bearer).getEmail();
+        List<FeedbackAssignment> list = feedbackService.pendingFor(email);
+
+        Optional<FeedbackAssignment> opt = list.stream()
+                .filter(a -> a.getForm() != null && Objects.equals(a.getForm().getId(), formId))
+                .findFirst();
+
+        if (opt.isEmpty()) {
+            return ResponseEntity.status(404).body(Map.of("error", "Pending form not found"));
+        }
+
+        FeedbackAssignment a = opt.get();
+        FeedbackForm form = a.getForm();
+
+        List<QuestionDto> questions = questionRepo.findByForm(form)
+                .stream()
+                .map(q -> new QuestionDto(
+                        q.getId(),
+                        q.getPrompt(),
+                        q.getType().name(),
+                        q.getMaxRating()
+                ))
+                .collect(Collectors.toList());
+
+        Instant assignedAt = extractAssignedAt(a);
+
+        StudentPendingDto dto = new StudentPendingDto(
+                a.getId(),
+                form.getId(),
+                form.getTitle(),
+                form.getDescription() == null ? "" : form.getDescription(),
+                form.getCreatedBy() != null ? form.getCreatedBy().getFullName() : "Unknown",
+                assignedAt,
+                questions
+        );
+
+        return ResponseEntity.ok(dto);
+    }
+
+
+    @GetMapping("/completed/{formId}")
+    @PreAuthorize("hasRole('STUDENT')")
+    public ResponseEntity<?> completedSingle(@RequestHeader("Authorization") String bearer,
+                                             @PathVariable("formId") Long formId) {
+        User student = me(bearer);
+        List<FeedbackAssignment> assignments = feedbackService.completedFor(student.getEmail());
+
+        Optional<FeedbackAssignment> opt = assignments.stream()
+                .filter(a -> a.getForm() != null && Objects.equals(a.getForm().getId(), formId))
+                .findFirst();
+
+        if (opt.isEmpty()) {
+            return ResponseEntity.status(404).body(Map.of("error", "Completed form not found"));
+        }
+
+        FeedbackAssignment a = opt.get();
+        FeedbackForm form = a.getForm();
+
+        List<FeedbackAnswer> answers = answerRepo.findByFormAndStudent(form, student);
+        List<StudentSubmissionAnswerDto> qaList = answers.stream().map(ans -> {
+            Object answerVal = ans.getQuestion().getType() == QuestionType.RATING ? ans.getRatingAnswer() : ans.getTextAnswer();
+            return new StudentSubmissionAnswerDto(
+                    ans.getQuestion().getPrompt(),
+                    ans.getQuestion().getType().name(),
+                    answerVal,
+                    toInstant(ans.getCreatedAt())
+            );
+        }).collect(Collectors.toList());
+
+        Instant assignedAt = extractAssignedAt(a);
+        Instant submittedAt = extractSubmittedAt(a);
+
+        StudentCompletedDto dto = new StudentCompletedDto(
+                a.getId(),
+                form.getId(),
+                form.getTitle(),
+                form.getDescription() == null ? "" : form.getDescription(),
+                form.getCreatedBy() != null ? form.getCreatedBy().getFullName() : "Unknown",
+                assignedAt,
+                submittedAt,
+                qaList
+        );
+
+        return ResponseEntity.ok(dto);
+    }
+
 
 }
