@@ -90,6 +90,7 @@ public class StudentController {
             Map<String,Object> m = new HashMap<>();
             m.put("formId", form.getId());
             m.put("title", form.getTitle());
+            m.put("description", form.getDescription() == null ? "" : form.getDescription());
             m.put("createdBy", form.getCreatedBy() != null ? form.getCreatedBy().getFullName() : "Unknown");
             m.put("assignedAt", assignedAt);
             return m;
@@ -109,6 +110,7 @@ public class StudentController {
             Map<String,Object> m = new HashMap<>();
             m.put("formId", form.getId());
             m.put("title", form.getTitle());
+            m.put("description", form.getDescription() == null ? "" : form.getDescription());
             m.put("createdBy", form.getCreatedBy() != null ? form.getCreatedBy().getFullName() : "Unknown");
             return m;
         }).collect(Collectors.toList());
