@@ -209,7 +209,6 @@ public class StudentController {
                 form.getDescription() == null ? "" : form.getDescription(),
                 form.getCreatedBy() != null ? form.getCreatedBy().getFullName() : "Unknown",
                 assignedAt,
-                submittedAt,
                 qaList
         );
 
