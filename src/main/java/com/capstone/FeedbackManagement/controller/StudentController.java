@@ -200,7 +200,6 @@ public class StudentController {
         }).collect(Collectors.toList());
 
         Instant assignedAt = extractAssignedAt(a);
-        Instant submittedAt = extractSubmittedAt(a);
 
         StudentCompletedDto dto = new StudentCompletedDto(
                 a.getId(),
