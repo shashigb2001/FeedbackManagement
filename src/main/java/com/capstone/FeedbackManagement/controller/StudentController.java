@@ -62,14 +62,6 @@ public class StudentController {
     }
 
 
-    private Instant extractSubmittedAt(Object assignment) {
-        Object cand = callFirstExistingGetter(assignment,
-                "getSubmittedAt", "getSubmittedOn", "getSubmittedTime", "getSubmittedDate", "getSubmitted",
-                "isSubmittedAt", "isSubmitted");
-        return toInstant(cand);
-    }
-
-
     private Instant extractAssignedAt(Object assignment) {
         Object cand = callFirstExistingGetter(assignment,
                 "getAssignedAt", "getAssignedOn", "getAssignedTime", "getAssignedDate");
