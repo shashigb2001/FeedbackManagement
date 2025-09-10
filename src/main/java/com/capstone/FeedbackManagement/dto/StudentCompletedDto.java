@@ -10,6 +10,5 @@ public record StudentCompletedDto(
         String description,
         String createdBy,
         Instant assignedAt,
-        Instant submittedAt,
         List<StudentSubmissionAnswerDto> answers
 ) {}
