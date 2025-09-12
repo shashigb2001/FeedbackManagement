@@ -101,8 +101,7 @@ public class AuthController {
             ));
         } catch (Exception ex) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
-                    "error", "Error",
-                    "message", "An unexpected error occurred"
+                    "message", "Invalid password"
             ));
         }
     }
