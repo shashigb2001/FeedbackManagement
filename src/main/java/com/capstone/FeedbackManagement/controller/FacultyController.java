@@ -2,10 +2,7 @@ package com.capstone.FeedbackManagement.controller;
 
 import com.capstone.FeedbackManagement.domain.FeedbackForm;
 import com.capstone.FeedbackManagement.domain.User;
-import com.capstone.FeedbackManagement.dto.AssignFormRequest;
-import com.capstone.FeedbackManagement.dto.CreateFormRequest;
-import com.capstone.FeedbackManagement.dto.FormDto;
-import com.capstone.FeedbackManagement.dto.QuestionDto;
+import com.capstone.FeedbackManagement.dto.*;
 import com.capstone.FeedbackManagement.repo.FeedbackFormRepo;
 import com.capstone.FeedbackManagement.repo.UserRepo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -147,4 +144,34 @@ public class FacultyController {
         }
     }
 
+    @GetMapping("/forms/{formId}/assignees")
+    @PreAuthorize("hasRole('FACULTY')")
+    public @ResponseBody Map<String, Object> getFormAssignees(@RequestHeader("Authorization") String bearer,
+                                                              @PathVariable("formId") Long formId) {
+        try {
+            User faculty = me(bearer);
+            List<AssigneeDto> assignees = feedbackService.getAssignees(formId, faculty);
+            return Map.of("status", "success", "formId", formId, "assignees", assignees);
+        } catch (Exception e) {
+            return Map.of("status", "error", "message", e.getMessage());
+        }
+    }
+
+    @DeleteMapping("/forms/{formId}/assignees")
+    @PreAuthorize("hasRole('FACULTY')")
+    public @ResponseBody Map<String, Object> removeAssignee(@RequestHeader("Authorization") String bearer,
+                                                            @PathVariable("formId") Long formId,
+                                                            @RequestParam("email") String email) {
+        try {
+            User faculty = me(bearer);
+            boolean removed = feedbackService.removeAssignee(formId, email, faculty);
+            if (removed) {
+                return Map.of("status", "success", "message", "Assignee removed", "email", email);
+            } else {
+                return Map.of("status", "error", "message", "Assignee not found", "email", email);
+            }
+        } catch (Exception e) {
+            return Map.of("status", "error", "message", e.getMessage());
+        }
+    }
 }

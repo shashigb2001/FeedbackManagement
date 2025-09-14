@@ -2,6 +2,7 @@ package com.capstone.FeedbackManagement.service;
 
 import com.capstone.FeedbackManagement.domain.*;
 import com.capstone.FeedbackManagement.dto.AnswerDto;
+import com.capstone.FeedbackManagement.dto.AssigneeDto;
 import com.capstone.FeedbackManagement.dto.QuestionCreateDto;
 import com.capstone.FeedbackManagement.repo.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -250,6 +251,42 @@ public class FeedbackService {
     private double round(double value, int places) {
         if (places < 0) throw new IllegalArgumentException();
         return BigDecimal.valueOf(value).setScale(places, RoundingMode.HALF_UP).doubleValue();
+    }
+
+    public List<AssigneeDto> getAssignees(Long formId, User requestingFaculty) {
+        FeedbackForm form = formRepo.findById(formId)
+                .orElseThrow(() -> new NoSuchElementException("Form not found"));
+
+        if (form.getCreatedBy() == null || !Objects.equals(form.getCreatedBy().getId(), requestingFaculty.getId())) {
+            throw new SecurityException("Not authorized to view assignees for this form");
+        }
+
+        List<FeedbackAssignment> assignments = assignmentRepo.findByFormId(formId);
+        return assignments.stream()
+                .map(a -> new AssigneeDto(
+                        a.getStudent() != null ? a.getStudent().getId() : null,
+                        a.getStudent() != null ? (a.getStudent().getFullName() == null ? "" : a.getStudent().getFullName()) : "",
+                        a.getStudent() != null ? a.getStudent().getEmail() : a.getStudentEmail(),
+                        a.getAssignedAt(),
+                        a.isSubmitted()
+                ))
+                .toList();
+    }
+
+    @Transactional
+    public boolean removeAssignee(Long formId, String studentEmail, User requestingFaculty) {
+        FeedbackForm form = formRepo.findById(formId)
+                .orElseThrow(() -> new NoSuchElementException("Form not found"));
+
+        if (form.getCreatedBy() == null || !Objects.equals(form.getCreatedBy().getId(), requestingFaculty.getId())) {
+            throw new SecurityException("Not authorized to remove assignee for this form");
+        }
+
+        var maybe = assignmentRepo.findByFormIdAndStudentEmail(formId, studentEmail);
+        if (maybe.isEmpty()) return false;
+
+        assignmentRepo.delete(maybe.get());
+        return true;
     }
 
 }
