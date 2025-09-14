@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -37,39 +38,67 @@ public class AuthController {
 
     @PostMapping("/login/student")
     public ResponseEntity<?> loginStudent(@RequestBody RegisterRequest req) {
-        User user = authenticateAndFetchUser(req.email(), req.password());
-        if (!"STUDENT".equalsIgnoreCase(user.getRole().name())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Forbidden", "message", "Not a student account"));
+        try {
+            User user = authenticateAndFetchUser(req.email(), req.password());
+
+            if (!"STUDENT".equalsIgnoreCase(user.getRole().name())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Forbidden", "message", "Not a student account"));
+            }
+
+            UserDetails ud = myUserDetailsService.loadUserByUsername(user.getEmail());
+            String token = jwtService.generateToken(ud);
+
+            return ResponseEntity.ok(new JwtResponse(token, user.getRole().name(), user.getFullName()));
+
+        } catch (BadCredentialsException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized", "message", "Invalid email or password"));
         }
-        UserDetails ud = myUserDetailsService.loadUserByUsername(user.getEmail());
-        String token = jwtService.generateToken(ud);
-        return ResponseEntity.ok(new JwtResponse(token, user.getRole().name(), user.getFullName()));
     }
 
     @PostMapping("/login/faculty")
     public ResponseEntity<?> loginFaculty(@RequestBody RegisterRequest req) {
-        User user = authenticateAndFetchUser(req.email(), req.password());
-        if (!"FACULTY".equalsIgnoreCase(user.getRole().name())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Forbidden", "message", "Not a faculty account"));
+        try {
+            User user = authenticateAndFetchUser(req.email(), req.password());
+
+            if (!"FACULTY".equalsIgnoreCase(user.getRole().name())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Forbidden", "message", "Not a faculty account"));
+            }
+
+            UserDetails ud = myUserDetailsService.loadUserByUsername(user.getEmail());
+            String token = jwtService.generateToken(ud);
+
+            return ResponseEntity.ok(new JwtResponse(token, user.getRole().name(), user.getFullName()));
+
+        } catch (BadCredentialsException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized", "message", "Invalid email or password"));
         }
-        UserDetails ud = myUserDetailsService.loadUserByUsername(user.getEmail());
-        String token = jwtService.generateToken(ud);
-        return ResponseEntity.ok(new JwtResponse(token, user.getRole().name(), user.getFullName()));
     }
 
     @PostMapping("/login/admin")
     public ResponseEntity<?> loginAdmin(@RequestBody RegisterRequest req) {
-        User user = authenticateAndFetchUser(req.email(), req.password());
-        if (!"ADMIN".equalsIgnoreCase(user.getRole().name())) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("error", "Forbidden", "message", "Not an admin account"));
+        try {
+            User user = authenticateAndFetchUser(req.email(), req.password());
+
+            if (!"ADMIN".equalsIgnoreCase(user.getRole().name())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "Forbidden", "message", "Not an admin account"));
+            }
+
+            UserDetails ud = myUserDetailsService.loadUserByUsername(user.getEmail());
+            String token = jwtService.generateToken(ud);
+
+            return ResponseEntity.ok(new JwtResponse(token, user.getRole().name(), user.getFullName()));
+
+        } catch (BadCredentialsException ex) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Unauthorized", "message", "Invalid email or password"));
         }
-        UserDetails ud = myUserDetailsService.loadUserByUsername(user.getEmail());
-        String token = jwtService.generateToken(ud);
-        return ResponseEntity.ok(new JwtResponse(token, user.getRole().name(), user.getFullName()));
     }
+
 
 
     @PostMapping("/register")
