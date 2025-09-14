@@ -9,6 +9,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.http.HttpStatus;
+
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -141,65 +144,74 @@ public class FeedbackService {
                 });
     }
 
-    public Map<String,Object> analytics(Long formId) {
+    public Map<String, Object> analytics(Long formId) {
         FeedbackForm form = formRepo.findById(formId).orElseThrow();
-        Map<String,Object> out = new LinkedHashMap<>();
+        Map<String, Object> out = new LinkedHashMap<>();
         out.put("formId", form.getId());
         out.put("title", form.getTitle());
 
-        List<FeedbackAssignment> allAssigned = assignmentRepo.findByFormId(formId);
-        long assignedCount = allAssigned == null ? 0L : allAssigned.size();
-        List<FeedbackAssignment> completedAssignments = assignmentRepo.findByFormIdAndSubmittedTrue(formId);
-        long submittedCount = completedAssignments == null ? 0L : completedAssignments.size();
+        List<FeedbackAssignment> allAssigned = Optional.ofNullable(assignmentRepo.findByFormId(formId)).orElse(List.of());
+        long assignedCount = allAssigned.size();
+        List<FeedbackAssignment> completedAssignments =
+                Optional.ofNullable(assignmentRepo.findByFormIdAndSubmittedTrue(formId)).orElse(List.of());
+        long submittedCount = completedAssignments.size();
 
         double submittedPercentage = 0.0;
         if (assignedCount > 0) {
-            submittedPercentage = Math.round((100.0 * submittedCount / assignedCount) * 100.0) / 100.0;
+            submittedPercentage = round(100.0 * submittedCount / assignedCount, 2);
         }
 
         out.put("assignedCount", assignedCount);
         out.put("submittedCount", submittedCount);
         out.put("submittedPercentage", submittedPercentage);
 
-        List<FeedbackAnswer> formAnswers = answerRepo.findByFormId(formId);
+        List<FeedbackAnswer> formAnswers = Optional.ofNullable(answerRepo.findByFormId(formId)).orElse(List.of());
 
-        List<Map<String,Object>> qstats = new ArrayList<>();
-        for (Question q : questionRepo.findByForm(form)) {
-            Map<String,Object> qmap = new LinkedHashMap<>();
+        List<Integer> overallRatings = new ArrayList<>();
+
+        List<Map<String, Object>> qstats = new ArrayList<>();
+        for (Question q : Optional.ofNullable(questionRepo.findByForm(form)).orElse(List.of())) {
+            Map<String, Object> qmap = new LinkedHashMap<>();
             qmap.put("questionId", q.getId());
             qmap.put("prompt", q.getPrompt());
             qmap.put("type", q.getType().name());
 
             List<FeedbackAnswer> answersForQ = formAnswers.stream()
-                    .filter(a -> a.getQuestion() != null && a.getQuestion().getId() != null && a.getQuestion().getId().equals(q.getId()))
+                    .filter(a -> a.getQuestion() != null
+                            && a.getQuestion().getId() != null
+                            && a.getQuestion().getId().equals(q.getId()))
                     .toList();
 
             if (q.getType() == QuestionType.RATING) {
-                // average & total responses (number of rating answers recorded)
-                double avg = answersForQ.stream()
-                        .mapToInt(a -> a.getRatingAnswer() == null ? 0 : a.getRatingAnswer())
+                List<Integer> ratingsForQ = answersForQ.stream()
+                        .map(FeedbackAnswer::getRatingAnswer)
+                        .filter(Objects::nonNull)
+                        .toList();
+
+                overallRatings.addAll(ratingsForQ);
+
+                double avg = ratingsForQ.stream()
+                        .mapToInt(Integer::intValue)
                         .average()
                         .orElse(0.0);
-                qmap.put("avgRating", Math.round(avg * 100.0) / 100.0);
-                qmap.put("responseCount", answersForQ.size());
+
+                qmap.put("avgRating", round(avg, 2));
+                int responseCount = ratingsForQ.size();
+                qmap.put("responseCount", responseCount);
 
                 int max = q.getMaxRating() != null ? q.getMaxRating() : 5;
-                Map<Integer, Long> counts = new LinkedHashMap<>();
-                for (int r = 1; r <= max; r++) {
-                    final int star = r;
-                    long c = answersForQ.stream()
-                            .filter(a -> a.getRatingAnswer() != null && a.getRatingAnswer() == star)
-                            .count();
-                    counts.put(star, c);
-                }
+
+                Map<Integer, Long> counts = ratingsForQ.stream()
+                        .collect(Collectors.groupingBy(r -> r, LinkedHashMap::new, Collectors.counting()));
+
+                for (int r = 1; r <= max; r++) counts.putIfAbsent(r, 0L);
                 qmap.put("ratingCounts", counts);
 
                 Map<Integer, Double> percentagesOfSubmitted = new LinkedHashMap<>();
                 for (int r = 1; r <= max; r++) {
                     long c = counts.getOrDefault(r, 0L);
                     double pct = (submittedCount == 0) ? 0.0 : (100.0 * c / submittedCount);
-                    pct = Math.round(pct * 100.0) / 100.0;
-                    percentagesOfSubmitted.put(r, pct);
+                    percentagesOfSubmitted.put(r, round(pct, 2));
                 }
                 qmap.put("ratingPercentagesOfSubmitted", percentagesOfSubmitted);
 
@@ -215,7 +227,29 @@ public class FeedbackService {
         }
 
         out.put("questions", qstats);
+
+        double overallAvg = overallRatings.stream()
+                .mapToInt(Integer::intValue)
+                .average()
+                .orElse(0.0);
+        long overallCount = overallRatings.size();
+
+        Map<Integer, Long> overallRatingCounts = overallRatings.stream()
+                .collect(Collectors.groupingBy(r -> r, LinkedHashMap::new, Collectors.counting()));
+
+        int globalMax = 5;
+        for (int r = 1; r <= globalMax; r++) overallRatingCounts.putIfAbsent(r, 0L);
+
+        out.put("overallAvgRating", round(overallAvg, 2));
+        out.put("overallRatingCount", overallCount);
+        out.put("overallRatingCounts", overallRatingCounts);
+
         return out;
+    }
+
+    private double round(double value, int places) {
+        if (places < 0) throw new IllegalArgumentException();
+        return BigDecimal.valueOf(value).setScale(places, RoundingMode.HALF_UP).doubleValue();
     }
 
 }
